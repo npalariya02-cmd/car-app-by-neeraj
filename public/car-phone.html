@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>GTA 5 RoboCar Bridge — Car Phone</title>
+  <style>
+    :root {
+      --bg: #080b10;
+      --card: #101620;
+      --border: #253142;
+      --green: #58d66b;
+      --amber: #f5b935;
+      --red: #ef4444;
+      --blue: #38bdf8;
+      --text: #f3f6fa;
+      --muted: #93a1b5;
+      --font-head: Impact, "Arial Black", Arial, sans-serif;
+      --font-body: Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .header {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--green);
+      padding: 12px 14px;
+    }
+
+    .title {
+      font-family: var(--font-head);
+      font-size: 22px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .status-pill {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--red);
+      flex-shrink: 0;
+    }
+
+    .dot.ok { background: var(--green); }
+    .dot.warn { background: var(--amber); }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: #06090d;
+      color: #fff;
+      border: 1px solid var(--border);
+      padding: 11px 12px;
+      font-size: 14px;
+      min-width: 0;
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button {
+      background: #17202e;
+      color: var(--text);
+      border: 1px solid #33435a;
+      padding: 13px 10px;
+      font-family: var(--font-head);
+      font-size: 14px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    button:active { transform: scale(0.98); }
+    button.green { border-color: var(--green); color: var(--green); }
+    button.blue { border-color: var(--blue); color: var(--blue); }
+    button.amber { border-color: var(--amber); color: var(--amber); }
+
+    .preview-box {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #030507;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .log-box {
+      background: #040608;
+      border: 1px solid var(--border);
+      padding: 10px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #cbd5e1;
+      height: 170px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">RoboCar Phone Bridge</div>
+    <div class="subtitle">Rear Camera + Mic WebRTC · USB OTG Serial · Horn &amp; Torch</div>
+  </div>
+
+  <div class="status-grid">
+    <div class="status-pill"><span class="dot" id="dotSocket"></span><span id="txtSocket">SOCKET</span></div>
+    <div class="status-pill"><span class="dot" id="dotCam"></span><span id="txtCam">CAMERA</span></div>
+    <div class="status-pill"><span class="dot" id="dotRtc"></span><span id="txtRtc">WEBRTC</span></div>
+    <div class="status-pill"><span class="dot" id="dotSerial"></span><span id="txtSerial">ARDUINO</span></div>
+    <div class="status-pill"><span class="dot" id="dotAudio"></span><span id="txtAudio">AUDIO</span></div>
+    <div class="status-pill"><span class="dot" id="dotTorch"></span><span id="txtTorch">TORCH</span></div>
+  </div>
+
+  <div class="card">
+    <div class="label">Bridge Server URL</div>
+    <div class="row">
+      <input type="text" id="serverUrlInput" placeholder="https://your-server-url" />
+      <button class="green" id="btnConnect">CONNECT</button>
+    </div>
+
+    <div class="btn-grid">
+      <button class="blue" id="btnStartCamera">START CAMERA</button>
+      <button class="amber" id="btnConnectArduino">CONNECT ARDUINO (USB)</button>
+      <button id="btnTestSound">TEST SOUND</button>
+      <button id="btnTestTorch">TEST TORCH</button>
+    </div>
+  </div>
+
+  <div class="preview-box">
+    <video id="localVideo" autoplay muted playsinline></video>
+  </div>
+
+  <div class="card">
+    <div class="label">Status Log</div>
+    <div class="log-box" id="statusLog">Tap anywhere to unlock audio, then Connect &amp; Start Camera.</div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const serverUrlInput = document.getElementById('serverUrlInput');
+      const btnConnect = document.getElementById('btnConnect');
+      const btnStartCamera = document.getElementById('btnStartCamera');
+      const btnConnectArduino = document.getElementById('btnConnectArduino');
+      const btnTestSound = document.getElementById('btnTestSound');
+      const btnTestTorch = document.getElementById('btnTestTorch');
+      const localVideo = document.getElementById('localVideo');
+      const statusLog = document.getElementById('statusLog');
+
+      const dotSocket = document.getElementById('dotSocket');
+      const dotCam = document.getElementById('dotCam');
+      const dotRtc = document.getElementById('dotRtc');
+      const dotSerial = document.getElementById('dotSerial');
+      const dotAudio = document.getElementById('dotAudio');
+      const dotTorch = document.getElementById('dotTorch');
+
+      let socket = null;
+      let localStream = null;
+      let pc = null;
+      let remoteDescSet = false;
+      let iceQueue = [];
+      let pendingViewerOffer = false;
+
+      let audioCtx = null;
+      let audioUnlocked = false;
+      let hornNodes = null;
+      let hornStopTimer = null;
+
+      let torchEnabled = false;
+
+      let serialMode = null; // 'capacitor' | 'webserial'
+      let capPlugin = null;
+      let webSerialPort = null;
+      let webSerialWriter = null;
+      let webSerialReader = null;
+      let serialReadBuffer = '';
+
+      function log(msg) {
+        const ts = new Date().toLocaleTimeString();
+        statusLog.textContent += '\n[' + ts + '] ' + msg;
+        statusLog.scrollTop = statusLog.scrollHeight;
+      }
+
+      function setDot(dot, state) {
+        dot.className = 'dot' + (state ? ' ' + state : '');
+      }
+
+      function loadSavedServerUrl() {
+        let initial = window.location.origin;
+        try {
+          const saved = localStorage.getItem('robocar_server_url');
+          if (saved) initial = saved;
+        } catch (_) {}
+        serverUrlInput.value = initial;
+      }
+
+      function saveServerUrl(url) {
+        try {
+          localStorage.setItem('robocar_server_url', url);
+        } catch (_) {}
+      }
+
+      function unlockAudio() {
+        try {
+          const AudioCtor = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtor) {
+            log('AudioContext not supported in this browser.');
+            return false;
+          }
+          if (!audioCtx) {
+            audioCtx = new AudioCtor();
+          }
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
+          if (!audioUnlocked) {
+            const sampleRate = audioCtx.sampleRate || 44100;
+            const frameCount = Math.max(1, Math.floor(sampleRate * 0.01));
+            const silentBuf = audioCtx.createBuffer(1, frameCount, sampleRate);
+            const src = audioCtx.createBufferSource();
+            src.buffer = silentBuf;
+            src.connect(audioCtx.destination);
+            src.start(0);
+            audioUnlocked = true;
+            setDot(dotAudio, 'ok');
+            log('AudioContext unlocked (10ms silent buffer).');
+          }
+          return true;
+        } catch (err) {
+          setDot(dotAudio, '');
+          log('Audio unlock failed: ' + err.message);
+          return false;
+        }
+      }
+
+      document.addEventListener('pointerdown', unlockAudio, { passive: true });
+      document.addEventListener('touchstart', unlockAudio, { passive: true });
+
+      function stopHorn() {
+        try {
+          if (hornStopTimer) {
+            clearTimeout(hornStopTimer);
+            hornStopTimer = null;
+          }
+          if (hornNodes) {
+            try { hornNodes.osc1.stop(); } catch (_) {}
+            try { hornNodes.osc2.stop(); } catch (_) {}
+            try { hornNodes.osc1.disconnect(); } catch (_) {}
+            try { hornNodes.osc2.disconnect(); } catch (_) {}
+            try { hornNodes.filter.disconnect(); } catch (_) {}
+            try { hornNodes.gain.disconnect(); } catch (_) {}
+            hornNodes = null;
+          }
+        } catch (err) {
+          log('Horn stop error: ' + err.message);
+        }
+      }
+
+      function startHorn(durationMs) {
+        try {
+          if (!unlockAudio() || !audioCtx) {
+            log('Cannot play horn: AudioContext unavailable.');
+            return;
+          }
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
+          stopHorn();
+
+          const osc1 = audioCtx.createOscillator();
+          const osc2 = audioCtx.createOscillator();
+          const filter = audioCtx.createBiquadFilter();
+          const gain = audioCtx.createGain();
+
+          osc1.type = 'sawtooth';
+          osc1.frequency.setValueAtTime(420, audioCtx.currentTime);
+
+          osc2.type = 'sawtooth';
+          osc2.frequency.setValueAtTime(520, audioCtx.currentTime);
+
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(1600, audioCtx.currentTime);
+
+          gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+
+          osc1.connect(filter);
+          osc2.connect(filter);
+          filter.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc1.start();
+          osc2.start();
+          hornNodes = { osc1, osc2, filter, gain };
+
+          const maxMs = Math.min(2500, durationMs || 2500);
+          hornStopTimer = setTimeout(() => {
+            stopHorn();
+          }, maxMs);
+        } catch (err) {
+          log('Horn play error: ' + err.message);
+        }
+      }
+
+      async function setTorch(enable) {
+        try {
+          if (!localStream) {
+            log('Torch error: Start Camera first (existing video track required).');
+            setDot(dotTorch, '');
+            return;
+          }
+          const tracks = localStream.getVideoTracks();
+          if (!tracks || tracks.length === 0) {
+            log('Torch error: No video track available.');
+            setDot(dotTorch, '');
+            return;
+          }
+          const track = tracks[0];
+          if (typeof track.getCapabilities === 'function') {
+            const caps = track.getCapabilities();
+            if (caps && caps.torch === false) {
+              log('Torch not supported by this camera.');
+              setDot(dotTorch, '');
+              return;
+            }
+          }
+          await track.applyConstraints({ advanced: [{ torch: Boolean(enable) }] });
+          torchEnabled = Boolean(enable);
+          setDot(dotTorch, torchEnabled ? 'ok' : '');
+          log('Torch ' + (torchEnabled ? 'ON' : 'OFF'));
+        } catch (err) {
+          setDot(dotTorch, '');
+          log('Torch failed: ' + err.message);
+        }
+      }
+
+      function shouldForwardToArduino(cmd) {
+        if (typeof cmd !== 'string') return false;
+        if (cmd === 'F' || cmd === 'B' || cmd === 'L' || cmd === 'R' || cmd === 'S') return true;
+        if (cmd === 'O' || cmd === 'M') return true;
+        if (cmd.startsWith('SPD:') || cmd.startsWith('CAM:')) return true;
+        return false;
+      }
+
+      function handleSerialLine(rawLine) {
+        const line = rawLine.trim();
+        if (!line) return;
+        if (line.startsWith('DIST:') && socket && socket.connected) {
+          socket.emit('cmd', line.slice(0, 16));
+        }
+      }
+
+      function processSerialChunk(text) {
+        serialReadBuffer += text;
+        const parts = serialReadBuffer.split(/\r?\n/);
+        serialReadBuffer = parts.pop();
+        for (const p of parts) {
+          handleSerialLine(p);
+        }
+      }
+
+      async function sendSerialCommand(cmd) {
+        if (!serialMode) return;
+        const payload = cmd + '\n';
+        try {
+          if (serialMode === 'capacitor' && capPlugin) {
+            if (typeof capPlugin.write === 'function') {
+              await capPlugin.write({ data: payload });
+            } else if (typeof capPlugin.send === 'function') {
+              await capPlugin.send({ data: payload });
+            }
+          } else if (serialMode === 'webserial' && webSerialWriter) {
+            const encoded = new TextEncoder().encode(payload);
+            await webSerialWriter.write(encoded);
+          }
+        } catch (err) {
+          log('Serial write failed: ' + err.message);
+          setDot(dotSerial, '');
+        }
+      }
+
+      function findCapacitorUsbSerialPlugin() {
+        try {
+          const plugins = window.Capacitor && window.Capacitor.Plugins ? window.Capacitor.Plugins : null;
+          if (plugins) {
+            return plugins.UsbSerial || plugins.Serial || plugins.CapacitorUsbSerial || null;
+          }
+          if (window.UsbSerial) return window.UsbSerial;
+        } catch (_) {}
+        return null;
+      }
+
+      async function startWebSerialReadLoop() {
+        const decoder = new TextDecoder();
+        try {
+          while (webSerialPort && webSerialPort.readable) {
+            webSerialReader = webSerialPort.readable.getReader();
+            try {
+              while (true) {
+                const result = await webSerialReader.read();
+                if (result.done) break;
+                if (result.value) {
+                  processSerialChunk(decoder.decode(result.value, { stream: true }));
+                }
+              }
+            } finally {
+              webSerialReader.releaseLock();
+              webSerialReader = null;
+            }
+          }
+        } catch (err) {
+          log('Web Serial read error: ' + err.message);
+          setDot(dotSerial, '');
+        }
+      }
+
+      async function connectArduino() {
+        try {
+          const cap = findCapacitorUsbSerialPlugin();
+          if (cap) {
+            capPlugin = cap;
+            if (typeof cap.openSerial === 'function') {
+              await cap.openSerial({ baudRate: 115200 });
+            } else if (typeof cap.open === 'function') {
+              await cap.open({ baudRate: 115200 });
+            }
+            if (typeof cap.addListener === 'function') {
+              cap.addListener('data', (ev) => {
+                if (ev && typeof ev.data === 'string') processSerialChunk(ev.data);
+              });
+              cap.addListener('onDataReceived', (ev) => {
+                if (ev && typeof ev.data === 'string') processSerialChunk(ev.data);
+              });
+            }
+            serialMode = 'capacitor';
+            setDot(dotSerial, 'ok');
+            log('Arduino connected via Capacitor USB Serial (115200).');
+            return;
+          }
+
+          if (!('serial' in navigator)) {
+            log('USB Serial unavailable: neither Capacitor USB plugin nor Web Serial API found.');
+            setDot(dotSerial, '');
+            return;
+          }
+
+          webSerialPort = await navigator.serial.requestPort();
+          await webSerialPort.open({ baudRate: 115200 });
+          webSerialWriter = webSerialPort.writable.getWriter();
+          serialMode = 'webserial';
+          setDot(dotSerial, 'ok');
+          log('Arduino connected via Web Serial (115200).');
+          startWebSerialReadLoop();
+        } catch (err) {
+          serialMode = null;
+          setDot(dotSerial, '');
+          log('Arduino USB connect failed: ' + err.message);
+        }
+      }
+
+      async function startCamera() {
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            log('getUserMedia is not supported in this browser/context (requires HTTPS).');
+            return;
+          }
+
+          if (localStream) {
+            localStream.getTracks().forEach((t) => {
+              try { t.stop(); } catch (_) {}
+            });
+          }
+
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: { ideal: 'environment' } },
+              audio: true
+            });
+          } catch (_) {
+            localStream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: 'environment' },
+              audio: true
+            });
+          }
+
+          localVideo.srcObject = localStream;
+          await localVideo.play().catch(() => {});
+          setDot(dotCam, 'ok');
+          log('Rear camera & mic started.');
+
+          if (pendingViewerOffer || (socket && socket.connected)) {
+            pendingViewerOffer = false;
+            await createAndSendOffer();
+          }
+        } catch (err) {
+          setDot(dotCam, '');
+          log('Camera start failed: ' + err.message);
+        }
+      }
+
+      function closePeerConnection() {
+        if (pc) {
+          try {
+            pc.onicecandidate = null;
+            pc.onconnectionstatechange = null;
+            pc.close();
+          } catch (_) {}
+          pc = null;
+        }
+        remoteDescSet = false;
+        iceQueue = [];
+      }
+
+      async function flushIceQueue() {
+        while (iceQueue.length > 0 && pc && remoteDescSet) {
+          const cand = iceQueue.shift();
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (err) {
+            log('ICE candidate error: ' + err.message);
+          }
+        }
+      }
+
+      async function createAndSendOffer() {
+        try {
+          if (!socket || !socket.connected) {
+            log('Socket not connected yet; skipping offer.');
+            return;
+          }
+          if (!localStream) {
+            pendingViewerOffer = true;
+            log('Laptop ready — tap START CAMERA to begin video stream.');
+            return;
+          }
+
+          closePeerConnection();
+          setDot(dotRtc, 'warn');
+
+          pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+          });
+
+          localStream.getTracks().forEach((track) => {
+            pc.addTrack(track, localStream);
+          });
+
+          pc.onicecandidate = (event) => {
+            if (event.candidate && socket && socket.connected) {
+              socket.emit('ice-candidate', event.candidate);
+            }
+          };
+
+          pc.onconnectionstatechange = () => {
+            if (!pc) return;
+            const st = pc.connectionState;
+            if (st === 'connected') {
+              setDot(dotRtc, 'ok');
+              log('WebRTC connected to laptop.');
+            } else if (st === 'connecting' || st === 'new') {
+              setDot(dotRtc, 'warn');
+            } else {
+              setDot(dotRtc, '');
+              log('WebRTC state: ' + st);
+            }
+          };
+
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          socket.emit('offer', pc.localDescription);
+          log('Sent WebRTC offer to laptop.');
+        } catch (err) {
+          setDot(dotRtc, '');
+          log('Create offer failed: ' + err.message);
+        }
+      }
+
+      function loadSocketScript(baseUrl) {
+        return new Promise((resolve, reject) => {
+          try {
+            const old = document.getElementById('dynamic-socket-io');
+            if (old) old.remove();
+
+            const script = document.createElement('script');
+            script.id = 'dynamic-socket-io';
+            script.src = baseUrl.replace(/\/+$/, '') + '/socket.io/socket.io.js';
+            script.onload = () => {
+              if (typeof window.io === 'function') {
+                resolve();
+              } else {
+                reject(new Error('socket.io script loaded but window.io is missing'));
+              }
+            };
+            script.onerror = () => reject(new Error('Failed to load ' + script.src));
+            document.head.appendChild(script);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      }
+
+      async function connectServer() {
+        const cleanUrl = (serverUrlInput.value || '').trim().replace(/\/+$/, '');
+        if (!cleanUrl) {
+          log('Enter a valid server URL.');
+          return;
+        }
+        saveServerUrl(cleanUrl);
+        setDot(dotSocket, 'warn');
+        log('Loading Socket.io client from ' + cleanUrl + '...');
+
+        try {
+          await loadSocketScript(cleanUrl);
+          if (socket) {
+            try { socket.disconnect(); } catch (_) {}
+            socket = null;
+          }
+
+          socket = window.io(cleanUrl, { transports: ['websocket', 'polling'] });
+
+          socket.on('connect', () => {
+            setDot(dotSocket, 'ok');
+            log('Connected to bridge server.');
+            socket.emit('register', 'phone');
+          });
+
+          socket.on('connect_error', (err) => {
+            setDot(dotSocket, '');
+            log('Socket connection error: ' + err.message);
+          });
+
+          socket.on('disconnect', () => {
+            setDot(dotSocket, '');
+            setDot(dotRtc, '');
+            log('Disconnected from server.');
+          });
+
+          socket.on('viewer-ready', () => {
+            log('Laptop viewer ready.');
+            createAndSendOffer();
+          });
+
+          socket.on('answer', async (answer) => {
+            try {
+              if (!pc) return;
+              await pc.setRemoteDescription(new RTCSessionDescription(answer));
+              remoteDescSet = true;
+              await flushIceQueue();
+              log('Applied WebRTC answer from laptop.');
+            } catch (err) {
+              log('Answer error: ' + err.message);
+            }
+          });
+
+          socket.on('ice-candidate', async (candidate) => {
+            try {
+              if (!pc || !remoteDescSet) {
+                iceQueue.push(candidate);
+              } else {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+              }
+            } catch (err) {
+              log('ICE add error: ' + err.message);
+            }
+          });
+
+          socket.on('cmd', (c) => {
+            if (typeof c !== 'string') return;
+            if (c.startsWith('DIST:')) return;
+
+            if (c === 'HORN_ON') {
+              startHorn(2500);
+            } else if (c === 'HORN_OFF') {
+              stopHorn();
+            } else if (c === 'TORCH_ON') {
+              setTorch(true);
+            } else if (c === 'TORCH_OFF') {
+              setTorch(false);
+            } else if (shouldForwardToArduino(c)) {
+              sendSerialCommand(c);
+            }
+          });
+        } catch (err) {
+          setDot(dotSocket, '');
+          log('Server connect failed: ' + err.message);
+        }
+      }
+
+      btnConnect.addEventListener('click', connectServer);
+      btnStartCamera.addEventListener('click', startCamera);
+      btnConnectArduino.addEventListener('click', connectArduino);
+      btnTestSound.addEventListener('click', () => {
+        unlockAudio();
+        startHorn(600);
+        log('Playing 600ms test horn...');
+      });
+      btnTestTorch.addEventListener('click', () => {
+        setTorch(!torchEnabled);
+      });
+
+      loadSavedServerUrl();
+    })();
+  </script>
+</body>
+</html>

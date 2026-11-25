@@ -1,0 +1,140 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Add Android platform if missing
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+
+      - name: Sync Capacitor web assets
+        run: npx cap sync android
+
+      - name: Configure AndroidManifest.xml and USB OTG device_filter.xml
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+
+            const xmlDir = path.join("android", "app", "src", "main", "res", "xml");
+            fs.mkdirSync(xmlDir, { recursive: true });
+
+            const deviceFilterXml = [
+              "<?xml version=\"1.0\" encoding=\"utf-8\"?>",
+              "<resources>",
+              "    <!-- Arduino SA (Uno / Mega / Leonardo) -->",
+              "    <usb-device vendor-id=\"9025\" />",
+              "    <!-- Arduino.org -->",
+              "    <usb-device vendor-id=\"10755\" />",
+              "    <!-- WCH CH340 / CH341 USB-Serial -->",
+              "    <usb-device vendor-id=\"6790\" />",
+              "    <!-- FTDI FT232R -->",
+              "    <usb-device vendor-id=\"1027\" />",
+              "    <!-- Silicon Labs CP210x -->",
+              "    <usb-device vendor-id=\"4292\" />",
+              "    <!-- Prolific PL2303 -->",
+              "    <usb-device vendor-id=\"1659\" />",
+              "</resources>",
+              ""
+            ].join("\n");
+            fs.writeFileSync(path.join(xmlDir, "device_filter.xml"), deviceFilterXml, "utf8");
+
+            const manifestPath = path.join("android", "app", "src", "main", "AndroidManifest.xml");
+            let manifest = fs.readFileSync(manifestPath, "utf8");
+
+            if (!/android:usesCleartextTraffic=/.test(manifest)) {
+              manifest = manifest.replace(
+                /<application\b/,
+                "<application\n        android:usesCleartextTraffic=\"true\""
+              );
+            } else {
+              manifest = manifest.replace(
+                /android:usesCleartextTraffic=\"false\"/g,
+                "android:usesCleartextTraffic=\"true\""
+              );
+            }
+
+            const permissions = [
+              "android.permission.CAMERA",
+              "android.permission.RECORD_AUDIO",
+              "android.permission.MODIFY_AUDIO_SETTINGS",
+              "android.permission.FLASHLIGHT",
+              "android.permission.INTERNET",
+              "android.permission.ACCESS_NETWORK_STATE",
+              "android.permission.WAKE_LOCK"
+            ];
+
+            const additions = [];
+            for (const perm of permissions) {
+              if (!manifest.includes(`android:name="${perm}"`)) {
+                additions.push(`    <uses-permission android:name="${perm}" />`);
+              }
+            }
+            if (!manifest.includes("android.hardware.usb.host")) {
+              additions.push("    <uses-feature android:name=\"android.hardware.usb.host\" />");
+            }
+
+            if (additions.length > 0) {
+              manifest = manifest.replace(
+                "</manifest>",
+                additions.join("\n") + "\n</manifest>"
+              );
+            }
+
+            if (!manifest.includes("android.hardware.usb.action.USB_DEVICE_ATTACHED")) {
+              const usbActivityMeta = [
+                "            <intent-filter>",
+                "                <action android:name=\"android.hardware.usb.action.USB_DEVICE_ATTACHED\" />",
+                "            </intent-filter>",
+                "            <meta-data",
+                "                android:name=\"android.hardware.usb.action.USB_DEVICE_ATTACHED\"",
+                "                android:resource=\"@xml/device_filter\" />"
+              ].join("\n");
+              manifest = manifest.replace(
+                "</activity>",
+                usbActivityMeta + "\n        </activity>"
+              );
+            }
+
+            fs.writeFileSync(manifestPath, manifest, "utf8");
+          '
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload RoboCar-Bridge-APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RoboCar-Bridge-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

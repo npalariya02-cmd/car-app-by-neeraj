@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RoboCar Bridge</title>
+  <style>
+    body {
+      margin: 0;
+      background: #080b10;
+      color: #f3f6fa;
+      font-family: Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div>Loading RoboCar Bridge...</div>
+  <script>
+    (function () {
+      try {
+        var isCapacitor = Boolean(window.Capacitor) ||
+          window.location.protocol === 'capacitor:' ||
+          /; wv\)/i.test(navigator.userAgent) ||
+          (window.location.hostname === 'localhost' && window.location.port === '');
+
+        if (isCapacitor) {
+          window.location.replace('car-phone.html');
+        } else {
+          window.location.replace('laptop-controller.html');
+        }
+      } catch (_) {
+        window.location.replace('car-phone.html');
+      }
+    })();
+  </script>
+</body>
+</html>

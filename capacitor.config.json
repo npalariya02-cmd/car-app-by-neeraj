@@ -1,0 +1,12 @@
+{
+  "appId": "com.neeraj.robocarbridge",
+  "appName": "RoboCar Bridge",
+  "webDir": "public",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

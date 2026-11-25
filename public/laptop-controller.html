@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GTA 5 RoboCar Bridge — Laptop HUD</title>
+  <style>
+    :root {
+      --bg: #070a0e;
+      --panel: rgba(10, 14, 20, 0.78);
+      --border: rgba(255, 255, 255, 0.16);
+      --gta-green: #58d66b;
+      --gta-amber: #f5b935;
+      --gta-red: #ef4444;
+      --gta-blue: #38bdf8;
+      --text: #f3f6fa;
+      --muted: #98a4b5;
+      --font-hud: Impact, "Arial Black", Arial, sans-serif;
+      --font-ui: Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      user-select: none;
+    }
+
+    #videoStage {
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at center, rgba(56, 189, 248, 0.08) 0%, rgba(7, 10, 14, 0.96) 70%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 40px),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 40px);
+    }
+
+    #remoteVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .hud-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+      background: radial-gradient(circle at center, transparent 60%, rgba(0, 0, 0, 0.45) 100%);
+    }
+
+    .interactive { pointer-events: auto; }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .brand-block {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--gta-green);
+      padding: 10px 14px;
+      backdrop-filter: blur(8px);
+    }
+
+    .brand-title {
+      font-family: var(--font-hud);
+      font-size: 22px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #fff;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .status-strip {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .pill {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 7px 11px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--gta-red);
+      box-shadow: 0 0 8px var(--gta-red);
+    }
+
+    .dot.ok { background: var(--gta-green); box-shadow: 0 0 8px var(--gta-green); }
+    .dot.warn { background: var(--gta-amber); box-shadow: 0 0 8px var(--gta-amber); }
+
+    .btn {
+      background: rgba(20, 27, 38, 0.9);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 8px 13px;
+      font-family: var(--font-hud);
+      font-size: 13px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .btn:hover { border-color: var(--gta-blue); color: var(--gta-blue); }
+    .btn.primary { border-color: var(--gta-green); color: var(--gta-green); }
+    .btn.warn { border-color: var(--gta-amber); color: var(--gta-amber); }
+
+    .center-reticle {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      text-align: center;
+    }
+
+    .crosshair {
+      width: 34px;
+      height: 34px;
+      margin: 0 auto;
+      position: relative;
+      opacity: 0.65;
+    }
+
+    .crosshair::before, .crosshair::after {
+      content: "";
+      position: absolute;
+      background: #fff;
+      box-shadow: 0 0 4px #000;
+    }
+
+    .crosshair::before { left: 16px; top: 0; width: 2px; height: 34px; }
+    .crosshair::after { top: 16px; left: 0; width: 34px; height: 2px; }
+
+    #hudAlert {
+      margin-top: 12px;
+      padding: 6px 12px;
+      background: rgba(10, 14, 20, 0.85);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      display: none;
+    }
+
+    #hudAlert.visible { display: inline-block; }
+    #hudAlert.error { border-color: var(--gta-red); color: #fecaca; }
+
+    .bottom-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .radar-panel {
+      background: var(--panel);
+      border: 2px solid var(--border);
+      padding: 12px;
+      width: 240px;
+      backdrop-filter: blur(8px);
+    }
+
+    .radar-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-family: var(--font-hud);
+      font-size: 14px;
+      letter-spacing: 1px;
+    }
+
+    .radar-ring {
+      position: relative;
+      width: 148px;
+      height: 148px;
+      margin: 4px auto 8px;
+      border-radius: 50%;
+      border: 2px solid rgba(88, 214, 107, 0.55);
+      background:
+        radial-gradient(circle, rgba(88, 214, 107, 0.16) 0%, rgba(7, 10, 14, 0.92) 72%);
+      overflow: hidden;
+    }
+
+    .radar-ring::before, .radar-ring::after {
+      content: "";
+      position: absolute;
+      inset: 24px;
+      border-radius: 50%;
+      border: 1px dashed rgba(255, 255, 255, 0.18);
+    }
+
+    .radar-ring::after { inset: 48px; }
+
+    .radar-cone {
+      position: absolute;
+      left: 50%;
+      bottom: 50%;
+      width: 120px;
+      height: 120px;
+      transform-origin: bottom center;
+      transform: translateX(-50%) rotate(0deg);
+      background: conic-gradient(from -25deg at 50% 100%, rgba(88, 214, 107, 0.45) 0deg, rgba(88, 214, 107, 0.05) 50deg, transparent 51deg);
+      transition: transform 0.08s linear;
+    }
+
+    .radar-blip {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--gta-green);
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 12px var(--gta-green);
+    }
+
+    .radar-car {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 10px;
+      height: 14px;
+      background: #fff;
+      transform: translate(-50%, -50%);
+      border-radius: 2px;
+    }
+
+    .radar-dist {
+      text-align: center;
+      font-family: var(--font-hud);
+      font-size: 26px;
+      letter-spacing: 1px;
+    }
+
+    .radar-bars {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      margin-top: 8px;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.06);
+      padding: 5px 4px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .right-cluster {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      max-width: 520px;
+    }
+
+    .telemetry-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-right: 4px solid var(--gta-amber);
+      padding: 12px 14px;
+      width: 340px;
+      backdrop-filter: blur(8px);
+    }
+
+    .row-between {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .hud-label {
+      font-family: var(--font-hud);
+      font-size: 15px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .speed-meter {
+      height: 10px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.12);
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+
+    .speed-fill {
+      height: 100%;
+      width: 50%;
+      background: linear-gradient(90deg, var(--gta-green), var(--gta-amber), var(--gta-red));
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--gta-amber);
+      cursor: pointer;
+    }
+
+    .drive-badges {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.06);
+      text-transform: uppercase;
+    }
+
+    .badge.active-green { border-color: var(--gta-green); color: var(--gta-green); background: rgba(88, 214, 107, 0.16); }
+    .badge.active-amber { border-color: var(--gta-amber); color: var(--gta-amber); background: rgba(245, 185, 53, 0.16); }
+    .badge.active-red { border-color: var(--gta-red); color: #fca5a5; background: rgba(239, 68, 68, 0.22); }
+    .badge.active-blue { border-color: var(--gta-blue); color: var(--gta-blue); background: rgba(56, 189, 248, 0.16); }
+
+    .key-hints {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+      text-align: right;
+    }
+
+    .key-hints strong { color: #fff; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 50;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      width: 100%;
+      max-width: 640px;
+      background: #0d1219;
+      border: 2px solid var(--gta-amber);
+      padding: 18px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .modal-title {
+      font-family: var(--font-hud);
+      font-size: 22px;
+      color: var(--gta-amber);
+      letter-spacing: 1px;
+    }
+
+    .modal-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    select, .text-input {
+      background: #070a0e;
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      padding: 8px 10px;
+      font-size: 13px;
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .terminal {
+      background: #040608;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #a7f3d0;
+      font-family: monospace;
+      font-size: 12px;
+      height: 240px;
+      overflow-y: auto;
+      padding: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .modal-status {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--gta-amber);
+      min-height: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div id="videoStage">
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+
+  <div class="hud-overlay">
+    <div class="top-bar">
+      <div class="brand-block">
+        <div class="brand-title">GTA 5 RoboCar Bridge</div>
+        <div class="brand-sub" id="linkStatusText">Initializing controller link...</div>
+      </div>
+
+      <div class="status-strip interactive">
+        <div class="pill"><span class="dot" id="dotSocket"></span><span id="txtSocket">SOCKET</span></div>
+        <div class="pill"><span class="dot" id="dotPhone"></span><span id="txtPhone">CAR PHONE</span></div>
+        <div class="pill"><span class="dot" id="dotRtc"></span><span id="txtRtc">VIDEO</span></div>
+        <button class="btn warn" id="btnUnmute" style="display:none;">Unmute Audio</button>
+        <button class="btn primary" id="btnReconnect">Reconnect</button>
+        <button class="btn" id="btnOpenFlash">Flash Arduino</button>
+      </div>
+    </div>
+
+    <div class="center-reticle">
+      <div class="crosshair"></div>
+      <div id="hudAlert"></div>
+    </div>
+
+    <div class="bottom-bar">
+      <div class="radar-panel">
+        <div class="radar-head">
+          <span>SONAR RADAR</span>
+          <span id="avoidBadge" class="badge">MANUAL</span>
+        </div>
+        <div class="radar-ring" id="radarRing">
+          <div class="radar-cone" id="radarCone"></div>
+          <div class="radar-blip" id="radarBlip" style="display:none;"></div>
+          <div class="radar-car"></div>
+        </div>
+        <div class="radar-dist" id="distReadout">-- cm</div>
+        <div class="radar-bars">
+          <div class="stat-box" id="statDrive">STOP</div>
+          <div class="stat-box" id="statCam">CAM 90°</div>
+          <div class="stat-box" id="statTorch">TORCH OFF</div>
+        </div>
+      </div>
+
+      <div class="right-cluster">
+        <div class="telemetry-card interactive">
+          <div class="row-between">
+            <span class="hud-label">THROTTLE PWM</span>
+            <span class="hud-label" id="speedValueText">165 / 255</span>
+          </div>
+          <div class="speed-meter"><div class="speed-fill" id="speedFill"></div></div>
+          <input type="range" id="speedSlider" min="70" max="255" value="165" />
+          <div class="drive-badges">
+            <span class="badge" id="badgeHorn">HORN: IDLE</span>
+            <span class="badge" id="badgeLook">LOOK: OFF</span>
+            <span class="badge" id="badgeDrive">CMD: S</span>
+          </div>
+        </div>
+
+        <div class="key-hints">
+          <strong>WASD / ARROWS</strong> Drive &nbsp;|&nbsp;
+          <strong>E (Hold)</strong> Horn &nbsp;|&nbsp;
+          <strong>H</strong> Torch &nbsp;|&nbsp;
+          <strong>V</strong> Mouse-Look &nbsp;|&nbsp;
+          <strong>C</strong> Center Cam (90°) &nbsp;|&nbsp;
+          <strong>O</strong> Auto-Avoid &nbsp;|&nbsp;
+          <strong>M</strong> Manual
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="flashModal">
+    <div class="modal interactive">
+      <div class="modal-header">
+        <div class="modal-title">FLASH ARDUINO UNO</div>
+        <button class="btn" id="btnCloseFlash">Close</button>
+      </div>
+      <div class="modal-controls">
+        <select id="portSelect">
+          <option value="">-- Detecting serial ports --</option>
+        </select>
+        <input type="text" id="customPortInput" class="text-input" placeholder="Or type COM3 / /dev/ttyUSB0" />
+      </div>
+      <div class="modal-controls">
+        <button class="btn" id="btnRefreshPorts">Refresh Ports</button>
+        <button class="btn primary" id="btnUploadFirmware">Upload Firmware</button>
+        <button class="btn warn" id="btnCopyIno">Copy .ino Code</button>
+      </div>
+      <pre class="terminal" id="flashTerminal">Ready. Select a serial port and click Upload Firmware.</pre>
+      <div class="modal-status" id="modalStatus"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const remoteVideo = document.getElementById('remoteVideo');
+      const linkStatusText = document.getElementById('linkStatusText');
+      const dotSocket = document.getElementById('dotSocket');
+      const dotPhone = document.getElementById('dotPhone');
+      const dotRtc = document.getElementById('dotRtc');
+      const txtRtc = document.getElementById('txtRtc');
+      const btnUnmute = document.getElementById('btnUnmute');
+      const btnReconnect = document.getElementById('btnReconnect');
+      const btnOpenFlash = document.getElementById('btnOpenFlash');
+      const btnCloseFlash = document.getElementById('btnCloseFlash');
+      const flashModal = document.getElementById('flashModal');
+      const portSelect = document.getElementById('portSelect');
+      const customPortInput = document.getElementById('customPortInput');
+      const btnRefreshPorts = document.getElementById('btnRefreshPorts');
+      const btnUploadFirmware = document.getElementById('btnUploadFirmware');
+      const btnCopyIno = document.getElementById('btnCopyIno');
+      const flashTerminal = document.getElementById('flashTerminal');
+      const modalStatus = document.getElementById('modalStatus');
+      const hudAlert = document.getElementById('hudAlert');
+
+      const distReadout = document.getElementById('distReadout');
+      const radarRing = document.getElementById('radarRing');
+      const radarCone = document.getElementById('radarCone');
+      const radarBlip = document.getElementById('radarBlip');
+      const avoidBadge = document.getElementById('avoidBadge');
+      const statDrive = document.getElementById('statDrive');
+      const statCam = document.getElementById('statCam');
+      const statTorch = document.getElementById('statTorch');
+      const speedSlider = document.getElementById('speedSlider');
+      const speedValueText = document.getElementById('speedValueText');
+      const speedFill = document.getElementById('speedFill');
+      const badgeHorn = document.getElementById('badgeHorn');
+      const badgeLook = document.getElementById('badgeLook');
+      const badgeDrive = document.getElementById('badgeDrive');
+
+      let socket = null;
+      let pc = null;
+      let remoteDescSet = false;
+      let iceQueue = [];
+
+      let currentDrive = 'S';
+      let hornActive = false;
+      let torchOn = false;
+      let autoAvoid = false;
+      let camAngle = 90;
+      let lastCamSentAngle = 90;
+      let lastCamSentAt = 0;
+
+      let mouseLookEnabled = false;
+      let pointerLocked = false;
+      const heldDriveKeys = [];
+
+      const DRIVE_KEY_MAP = {
+        KeyW: 'F',
+        ArrowUp: 'F',
+        KeyA: 'L',
+        ArrowLeft: 'L',
+        KeyS: 'B',
+        ArrowDown: 'B',
+        KeyD: 'R',
+        ArrowRight: 'R'
+      };
+
+      function showHudAlert(message, isError) {
+        hudAlert.textContent = message;
+        hudAlert.className = 'visible' + (isError ? ' error' : '');
+        linkStatusText.textContent = message;
+      }
+
+      function clearHudAlert() {
+        hudAlert.className = '';
+        hudAlert.textContent = '';
+      }
+
+      function setDot(dot, state) {
+        dot.className = 'dot' + (state ? ' ' + state : '');
+      }
+
+      function sendCmd(cmd) {
+        try {
+          if (socket && socket.connected) {
+            socket.emit('cmd', cmd);
+          }
+        } catch (err) {
+          showHudAlert('Command send error: ' + err.message, true);
+        }
+      }
+
+      function updateSpeedUI(val) {
+        const clamped = Math.max(70, Math.min(255, Number(val) || 165));
+        speedValueText.textContent = clamped + ' / 255';
+        const pct = Math.round(((clamped - 70) / (255 - 70)) * 100);
+        speedFill.style.width = pct + '%';
+      }
+
+      function updateDriveUI(cmd) {
+        currentDrive = cmd;
+        const labels = { F: 'FWD', B: 'REV', L: 'LEFT', R: 'RIGHT', S: 'STOP' };
+        statDrive.textContent = labels[cmd] || cmd;
+        badgeDrive.textContent = 'CMD: ' + cmd;
+        badgeDrive.className = 'badge' + (cmd !== 'S' ? ' active-green' : '');
+      }
+
+      function updateCamUI(angle) {
+        statCam.textContent = 'CAM ' + angle + '°';
+        const rot = angle - 90;
+        radarCone.style.transform = 'translateX(-50%) rotate(' + rot + 'deg)';
+      }
+
+      function updateAvoidUI() {
+        avoidBadge.textContent = autoAvoid ? 'AUTO-AVOID ON' : 'MANUAL';
+        avoidBadge.className = 'badge' + (autoAvoid ? ' active-green' : '');
+      }
+
+      function updateTorchUI() {
+        statTorch.textContent = torchOn ? 'TORCH ON' : 'TORCH OFF';
+        statTorch.style.color = torchOn ? '#f5b935' : '';
+      }
+
+      function updateHornUI() {
+        badgeHorn.textContent = hornActive ? 'HORN: ACTIVE' : 'HORN: IDLE';
+        badgeHorn.className = 'badge' + (hornActive ? ' active-red' : '');
+      }
+
+      function updateLookUI() {
+        if (!mouseLookEnabled) {
+          badgeLook.textContent = 'LOOK: OFF';
+          badgeLook.className = 'badge';
+        } else if (pointerLocked) {
+          badgeLook.textContent = 'LOOK: LOCKED';
+          badgeLook.className = 'badge active-blue';
+        } else {
+          badgeLook.textContent = 'LOOK: CURSOR';
+          badgeLook.className = 'badge active-amber';
+        }
+      }
+
+      function updateRadarDistance(cm) {
+        if (!Number.isFinite(cm) || cm >= 900) {
+          distReadout.textContent = 'CLEAR';
+          distReadout.style.color = '#58d66b';
+          radarRing.style.borderColor = 'rgba(88, 214, 107, 0.55)';
+          radarBlip.style.display = 'none';
+          return;
+        }
+
+        distReadout.textContent = cm + ' cm';
+        const ratio = Math.max(0.12, Math.min(1, cm / 150));
+        const radAngle = ((camAngle - 90) * Math.PI) / 180;
+        const radiusPx = ratio * 64;
+        const x = 74 + Math.sin(radAngle) * radiusPx;
+        const y = 74 - Math.cos(radAngle) * radiusPx;
+
+        radarBlip.style.display = 'block';
+        radarBlip.style.left = x + 'px';
+        radarBlip.style.top = y + 'px';
+
+        if (cm < 25) {
+          distReadout.style.color = '#ef4444';
+          radarRing.style.borderColor = '#ef4444';
+          radarBlip.style.background = '#ef4444';
+          radarBlip.style.boxShadow = '0 0 12px #ef4444';
+        } else if (cm < 60) {
+          distReadout.style.color = '#f5b935';
+          radarRing.style.borderColor = '#f5b935';
+          radarBlip.style.background = '#f5b935';
+          radarBlip.style.boxShadow = '0 0 12px #f5b935';
+        } else {
+          distReadout.style.color = '#58d66b';
+          radarRing.style.borderColor = 'rgba(88, 214, 107, 0.55)';
+          radarBlip.style.background = '#58d66b';
+          radarBlip.style.boxShadow = '0 0 12px #58d66b';
+        }
+      }
+
+      function sendCamAngleThrottled(angle) {
+        camAngle = Math.max(20, Math.min(160, Math.round(angle)));
+        updateCamUI(camAngle);
+        const now = performance.now();
+        if (camAngle !== lastCamSentAngle && now - lastCamSentAt >= 50) {
+          lastCamSentAngle = camAngle;
+          lastCamSentAt = now;
+          sendCmd('CAM:' + camAngle);
+        }
+      }
+
+      function toggleMouseLook(forceOff) {
+        if (forceOff === true || mouseLookEnabled) {
+          mouseLookEnabled = false;
+          try {
+            if (document.pointerLockElement) {
+              document.exitPointerLock();
+            }
+          } catch (err) {
+            showHudAlert('Exit pointer lock failed: ' + err.message, true);
+          }
+          pointerLocked = false;
+          updateLookUI();
+          return;
+        }
+
+        mouseLookEnabled = true;
+        try {
+          if (remoteVideo.requestPointerLock) {
+            const maybePromise = remoteVideo.requestPointerLock();
+            if (maybePromise && typeof maybePromise.catch === 'function') {
+              maybePromise.catch((err) => {
+                pointerLocked = false;
+                updateLookUI();
+                showHudAlert('Pointer Lock unavailable, using cursor pan fallback: ' + err.message, false);
+              });
+            }
+          } else {
+            showHudAlert('Pointer Lock not supported; using cursor pan fallback.', false);
+          }
+        } catch (err) {
+          pointerLocked = false;
+          showHudAlert('Pointer Lock fallback active: ' + err.message, false);
+        }
+        updateLookUI();
+      }
+
+      document.addEventListener('pointerlockchange', () => {
+        try {
+          pointerLocked = document.pointerLockElement === remoteVideo;
+          updateLookUI();
+        } catch (err) {
+          showHudAlert('Pointer lock error: ' + err.message, true);
+        }
+      });
+
+      document.addEventListener('pointerlockerror', () => {
+        pointerLocked = false;
+        if (mouseLookEnabled) {
+          showHudAlert('Pointer Lock blocked — using cursor position fallback.', false);
+        }
+        updateLookUI();
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!mouseLookEnabled || flashModal.classList.contains('open')) return;
+        try {
+          if (pointerLocked) {
+            sendCamAngleThrottled(camAngle + (e.movementX || 0) * 0.22);
+          } else {
+            const w = Math.max(1, window.innerWidth);
+            const norm = Math.max(0, Math.min(1, e.clientX / w));
+            sendCamAngleThrottled(20 + norm * 140);
+          }
+        } catch (err) {
+          showHudAlert('Mouse-look error: ' + err.message, true);
+        }
+      });
+
+      function releaseAllControls() {
+        heldDriveKeys.length = 0;
+        if (currentDrive !== 'S') {
+          updateDriveUI('S');
+          sendCmd('S');
+        }
+        if (hornActive) {
+          hornActive = false;
+          updateHornUI();
+          sendCmd('HORN_OFF');
+        }
+      }
+
+      window.addEventListener('blur', releaseAllControls);
+
+      window.addEventListener('keydown', (e) => {
+        if (flashModal.classList.contains('open')) return;
+        const tag = document.activeElement ? document.activeElement.tagName : '';
+        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+        const code = e.code;
+        if (DRIVE_KEY_MAP[code]) {
+          e.preventDefault();
+          if (e.repeat) return;
+          if (!heldDriveKeys.includes(code)) {
+            heldDriveKeys.push(code);
+          }
+          const cmd = DRIVE_KEY_MAP[code];
+          if (cmd !== currentDrive) {
+            updateDriveUI(cmd);
+            sendCmd(cmd);
+          }
+          return;
+        }
+
+        if (e.repeat) return;
+
+        if (code === 'KeyE') {
+          e.preventDefault();
+          if (!hornActive) {
+            hornActive = true;
+            updateHornUI();
+            sendCmd('HORN_ON');
+          }
+        } else if (code === 'KeyH') {
+          e.preventDefault();
+          torchOn = !torchOn;
+          updateTorchUI();
+          sendCmd(torchOn ? 'TORCH_ON' : 'TORCH_OFF');
+        } else if (code === 'KeyV') {
+          e.preventDefault();
+          toggleMouseLook();
+        } else if (code === 'KeyC') {
+          e.preventDefault();
+          camAngle = 90;
+          lastCamSentAngle = 90;
+          lastCamSentAt = performance.now();
+          updateCamUI(90);
+          sendCmd('CAM:90');
+        } else if (code === 'KeyO') {
+          e.preventDefault();
+          autoAvoid = !autoAvoid;
+          updateAvoidUI();
+          sendCmd(autoAvoid ? 'O' : 'M');
+        } else if (code === 'KeyM') {
+          e.preventDefault();
+          autoAvoid = false;
+          updateAvoidUI();
+          sendCmd('M');
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        const code = e.code;
+        if (DRIVE_KEY_MAP[code]) {
+          e.preventDefault();
+          const idx = heldDriveKeys.indexOf(code);
+          if (idx !== -1) heldDriveKeys.splice(idx, 1);
+
+          if (heldDriveKeys.length > 0) {
+            const nextCmd = DRIVE_KEY_MAP[heldDriveKeys[heldDriveKeys.length - 1]];
+            if (nextCmd !== currentDrive) {
+              updateDriveUI(nextCmd);
+              sendCmd(nextCmd);
+            }
+          } else if (currentDrive !== 'S') {
+            updateDriveUI('S');
+            sendCmd('S');
+          }
+          return;
+        }
+
+        if (code === 'KeyE') {
+          e.preventDefault();
+          if (hornActive) {
+            hornActive = false;
+            updateHornUI();
+            sendCmd('HORN_OFF');
+          }
+        }
+      });
+
+      let speedTimer = null;
+      speedSlider.addEventListener('input', () => {
+        const val = Number(speedSlider.value);
+        updateSpeedUI(val);
+        clearTimeout(speedTimer);
+        speedTimer = setTimeout(() => {
+          sendCmd('SPD:' + val);
+        }, 40);
+      });
+
+      btnUnmute.addEventListener('click', async () => {
+        try {
+          remoteVideo.muted = false;
+          await remoteVideo.play();
+          btnUnmute.style.display = 'none';
+          clearHudAlert();
+        } catch (err) {
+          showHudAlert('Audio unmute failed: ' + err.message, true);
+        }
+      });
+
+      function closePeerConnection() {
+        if (pc) {
+          try {
+            pc.ontrack = null;
+            pc.onicecandidate = null;
+            pc.onconnectionstatechange = null;
+            pc.close();
+          } catch (_) {}
+          pc = null;
+        }
+        remoteDescSet = false;
+        iceQueue = [];
+      }
+
+      async function flushIceQueue() {
+        while (iceQueue.length > 0 && pc && remoteDescSet) {
+          const cand = iceQueue.shift();
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (err) {
+            showHudAlert('ICE candidate error: ' + err.message, true);
+          }
+        }
+      }
+
+      async function handleOffer(offer) {
+        try {
+          closePeerConnection();
+          setDot(dotRtc, 'warn');
+          txtRtc.textContent = 'VIDEO: LINKING';
+
+          pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+          });
+
+          pc.ontrack = async (event) => {
+            try {
+              const stream = event.streams && event.streams[0]
+                ? event.streams[0]
+                : new MediaStream([event.track]);
+              if (remoteVideo.srcObject !== stream) {
+                remoteVideo.srcObject = stream;
+              }
+              remoteVideo.muted = false;
+              try {
+                await remoteVideo.play();
+                btnUnmute.style.display = 'none';
+                clearHudAlert();
+              } catch (_) {
+                remoteVideo.muted = true;
+                await remoteVideo.play();
+                btnUnmute.style.display = 'inline-block';
+                showHudAlert('Video live (muted by browser — click Unmute Audio)', false);
+              }
+            } catch (err) {
+              showHudAlert('Video playback error: ' + err.message, true);
+            }
+          };
+
+          pc.onicecandidate = (event) => {
+            if (event.candidate && socket && socket.connected) {
+              socket.emit('ice-candidate', event.candidate);
+            }
+          };
+
+          pc.onconnectionstatechange = () => {
+            if (!pc) return;
+            const st = pc.connectionState;
+            if (st === 'connected') {
+              setDot(dotRtc, 'ok');
+              txtRtc.textContent = 'VIDEO: LIVE';
+              linkStatusText.textContent = 'WebRTC stream active';
+            } else if (st === 'connecting' || st === 'new') {
+              setDot(dotRtc, 'warn');
+              txtRtc.textContent = 'VIDEO: CONNECTING';
+            } else {
+              setDot(dotRtc, '');
+              txtRtc.textContent = 'VIDEO: ' + st.toUpperCase();
+            }
+          };
+
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          remoteDescSet = true;
+          await flushIceQueue();
+
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          socket.emit('answer', pc.localDescription);
+        } catch (err) {
+          setDot(dotRtc, '');
+          txtRtc.textContent = 'VIDEO: ERROR';
+          showHudAlert('WebRTC answer error: ' + err.message, true);
+        }
+      }
+
+      function initSocket() {
+        try {
+          if (typeof window.io !== 'function') {
+            showHudAlert('Socket.io client failed to load from server.', true);
+            return;
+          }
+
+          socket = window.io();
+
+          socket.on('connect', () => {
+            setDot(dotSocket, 'ok');
+            linkStatusText.textContent = 'Connected to bridge server';
+            socket.emit('register', 'laptop');
+          });
+
+          socket.on('disconnect', () => {
+            setDot(dotSocket, '');
+            setDot(dotPhone, '');
+            setDot(dotRtc, '');
+            txtRtc.textContent = 'VIDEO: OFFLINE';
+            showHudAlert('Disconnected from server', true);
+          });
+
+          socket.on('peer-status', (status) => {
+            setDot(dotPhone, status && status.phone ? 'ok' : '');
+            if (status && status.phone) {
+              linkStatusText.textContent = 'Car phone online — awaiting/streaming WebRTC';
+            } else {
+              linkStatusText.textContent = 'Waiting for Car Phone (/car-phone.html)...';
+              setDot(dotRtc, '');
+              txtRtc.textContent = 'VIDEO: WAITING';
+            }
+          });
+
+          socket.on('offer', handleOffer);
+
+          socket.on('ice-candidate', async (candidate) => {
+            try {
+              if (!pc || !remoteDescSet) {
+                iceQueue.push(candidate);
+              } else {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+              }
+            } catch (err) {
+              showHudAlert('ICE add error: ' + err.message, true);
+            }
+          });
+
+          socket.on('cmd', (c) => {
+            if (typeof c === 'string' && c.startsWith('DIST:')) {
+              const cm = parseInt(c.slice(5), 10);
+              updateRadarDistance(cm);
+            }
+          });
+
+          socket.on('arduino-log', (line) => {
+            flashTerminal.textContent += '\n' + line;
+            flashTerminal.scrollTop = flashTerminal.scrollHeight;
+          });
+        } catch (err) {
+          showHudAlert('Socket init error: ' + err.message, true);
+        }
+      }
+
+      btnReconnect.addEventListener('click', () => {
+        try {
+          closePeerConnection();
+          setDot(dotRtc, 'warn');
+          txtRtc.textContent = 'VIDEO: RECONNECTING';
+          if (socket && socket.connected) {
+            socket.emit('reconnect-viewer');
+          }
+        } catch (err) {
+          showHudAlert('Reconnect error: ' + err.message, true);
+        }
+      });
+
+      async function loadPorts() {
+        modalStatus.textContent = 'Scanning ports...';
+        try {
+          const resp = await fetch('/api/arduino/ports');
+          const data = await resp.json();
+          portSelect.innerHTML = '';
+
+          if (!data.cliInstalled) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'arduino-cli not installed on server';
+            portSelect.appendChild(opt);
+            modalStatus.textContent = data.error || 'arduino-cli not found on server.';
+            return;
+          }
+
+          if (!data.ports || data.ports.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'No Arduino boards detected';
+            portSelect.appendChild(opt);
+            modalStatus.textContent = data.error || 'No USB serial ports detected. Type port manually if needed.';
+            return;
+          }
+
+          for (const p of data.ports) {
+            const opt = document.createElement('option');
+            opt.value = p.address;
+            opt.textContent = p.label || p.address;
+            portSelect.appendChild(opt);
+          }
+          modalStatus.textContent = 'Found ' + data.ports.length + ' port(s).';
+        } catch (err) {
+          modalStatus.textContent = 'Failed to load ports: ' + err.message;
+        }
+      }
+
+      btnOpenFlash.addEventListener('click', () => {
+        releaseAllControls();
+        if (mouseLookEnabled) toggleMouseLook(true);
+        flashModal.classList.add('open');
+        loadPorts();
+      });
+
+      btnCloseFlash.addEventListener('click', () => {
+        flashModal.classList.remove('open');
+      });
+
+      btnRefreshPorts.addEventListener('click', loadPorts);
+
+      btnUploadFirmware.addEventListener('click', async () => {
+        const chosenPort = (customPortInput.value || portSelect.value || '').trim();
+        if (!chosenPort) {
+          modalStatus.textContent = 'Select or enter a serial port first.';
+          return;
+        }
+        flashTerminal.textContent = 'Starting compile & upload to ' + chosenPort + '...';
+        modalStatus.textContent = 'Uploading...';
+        btnUploadFirmware.disabled = true;
+
+        try {
+          const resp = await fetch('/api/arduino/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ port: chosenPort })
+          });
+          const data = await resp.json();
+          if (data.ok) {
+            modalStatus.textContent = 'Firmware uploaded successfully!';
+          } else {
+            modalStatus.textContent = data.error || 'Upload failed. Check terminal log.';
+            if (data.log && !flashTerminal.textContent.includes(data.log.trim())) {
+              flashTerminal.textContent += '\n' + data.log;
+            }
+          }
+        } catch (err) {
+          modalStatus.textContent = 'Upload request error: ' + err.message;
+        } finally {
+          btnUploadFirmware.disabled = false;
+        }
+      });
+
+      btnCopyIno.addEventListener('click', async () => {
+        modalStatus.textContent = 'Fetching .ino code...';
+        try {
+          const resp = await fetch('/api/arduino/sketch');
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          const code = await resp.text();
+
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(code);
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = code;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+          }
+          modalStatus.textContent = 'Copied robocar.ino code to clipboard!';
+        } catch (err) {
+          modalStatus.textContent = 'Copy failed: ' + err.message;
+        }
+      });
+
+      updateSpeedUI(speedSlider.value);
+      updateCamUI(90);
+      updateAvoidUI();
+      updateTorchUI();
+      updateHornUI();
+      updateLookUI();
+      initSocket();
+    })();
+  </script>
+</body>
+</html>

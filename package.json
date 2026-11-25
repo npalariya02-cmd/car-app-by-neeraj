@@ -1,0 +1,16 @@
+{
+  "name": "gta5-robocar-bridge",
+  "version": "1.0.0",
+  "description": "GTA 5 RoboCar Bridge - WebRTC, Socket.io, Arduino Uno & Capacitor Android Bridge",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}
